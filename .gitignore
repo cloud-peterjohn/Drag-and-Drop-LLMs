@@ -30,3 +30,4 @@ tmp/*
 .cache/*
 
 run.ipynb
+train.py
