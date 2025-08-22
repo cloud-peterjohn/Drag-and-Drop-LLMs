@@ -5,7 +5,9 @@ import json
 import os
 import sys
 
-root = os.sep + os.sep.join(__file__.split(os.sep)[1 : __file__.split(os.sep).index("Drag-and-Drop-LLMs") + 1])
+root = os.sep + os.sep.join(
+    __file__.split(os.sep)[1 : __file__.split(os.sep).index("Drag-and-Drop-LLMs") + 1]
+)
 sys.path.append(root)
 os.chdir(root)
 with open("./workspace/main/config.json", "r") as f:
@@ -61,7 +63,7 @@ config: dict[str, [float, int, str, dict]] = {
     # train setting
     "max_num_gpus": 8,
     "batch_size": 64,
-    "num_workers": 8,
+    "num_workers": 2,
     "prefetch_factor": 1,
     "warmup_steps": 1,
     "total_steps": 4000,
@@ -78,7 +80,9 @@ config: dict[str, [float, int, str, dict]] = {
     ),
     "extractor_type": "BERT",
     "text_tokenizer": AutoTokenizer.from_pretrained(extractor),
-    "extra_condition_module": AutoModel.from_pretrained(extractor, torch_dtype="auto").to(accelerator.device),
+    "extra_condition_module": AutoModel.from_pretrained(
+        extractor, torch_dtype="auto"
+    ).to(accelerator.device),
     "max_text_length": max_text_length,
     "model_config": {
         "features": [
@@ -102,7 +106,9 @@ if accelerator.is_main_process:
     print("==> Preparing tokenizer and dataset...")
 tokenizer = Tokenizer(token_size=config["token_size"])
 Dataset.dtype = torch.bfloat16
-expected_iteration = config["total_steps"] * config["batch_size"] * config["max_num_gpus"]
+expected_iteration = (
+    config["total_steps"] * config["batch_size"] * config["max_num_gpus"]
+)
 
 
 train_set = Dataset(
@@ -113,7 +119,10 @@ train_set = Dataset(
     text_tokenizer=config["text_tokenizer"],
     max_text_length=config["max_text_length"],
     real_length=config["real_length"],
-    texts=[json.load(open(f"{COND_ROOT}/{dataset}_train.json", "r", encoding="utf-8")) for dataset in datasets],
+    texts=[
+        json.load(open(f"{COND_ROOT}/{dataset}_train.json", "r", encoding="utf-8"))
+        for dataset in datasets
+    ],
 )  # train set
 
 
@@ -132,7 +141,9 @@ test_set = Dataset(
 # process dataloader
 config["batch_size"] = config["batch_size"] // int(os.environ["NUM_PROCESSES"])
 if accelerator.is_main_process:
-    print(f"batchsize:{config['batch_size']}; total:{config['batch_size'] * int(os.environ['NUM_PROCESSES'])}")
+    print(
+        f"batchsize:{config['batch_size']}; total:{config['batch_size'] * int(os.environ['NUM_PROCESSES'])}"
+    )
 train_loader = DataLoader(
     dataset=train_set,
     batch_size=config["batch_size"],
@@ -190,7 +201,9 @@ if __name__ == "__main__":
     # accelerator = Accelerator(kwargs_handlers=[kwargs,],)
 
     # noinspection PyTypeChecker
-    model, optimizer, train_loader = accelerator.prepare(model, optimizer, train_loader)  # define everything
+    model, optimizer, train_loader = accelerator.prepare(
+        model, optimizer, train_loader
+    )  # define everything
 
 
 # Wandb
@@ -215,7 +228,10 @@ def train():
         print("==> Training...")
     model.train()
     for batch_idx, (tokens, cond_id, cond_mask) in enumerate(train_loader):
-        conditions = {"input_ids": cond_id.to(accelerator.device), "attention_mask": cond_mask.to(accelerator.device)}
+        conditions = {
+            "input_ids": cond_id.to(accelerator.device),
+            "attention_mask": cond_mask.to(accelerator.device),
+        }
         optimizer.zero_grad()
         tokens = tokens.to(accelerator.device)
         mask = ~torch.isnan(tokens)
@@ -238,7 +254,12 @@ def train():
             # log ans update
             if USE_WANDB:
                 wandb.log(
-                    {"train_loss": loss.item(), "learning_rate:": optimizer.state_dict()["param_groups"][0]["lr"]}
+                    {
+                        "train_loss": loss.item(),
+                        "learning_rate:": optimizer.state_dict()["param_groups"][0][
+                            "lr"
+                        ],
+                    }
                 )  # update diction
             else:  # not use wandb
                 # noinspection PyUnboundLocalVariable
@@ -251,13 +272,22 @@ def train():
                 os.makedirs(config["save_folder"], exist_ok=True)
                 state = accelerator.unwrap_model(model).state_dict()
                 state = accelerator.unwrap_model(model).state_dict()
-                keys_to_delete = [key for key in state.keys() if key.startswith("condition_module")]
+                keys_to_delete = [
+                    key for key in state.keys() if key.startswith("condition_module")
+                ]
                 for key in keys_to_delete:
                     del state[key]
                 # noinspection PyTypeChecker
-                torch.save(state, os.path.join(config["save_folder"], config["tag"] + ".pth"))
+                torch.save(
+                    state, os.path.join(config["save_folder"], config["tag"] + ".pth")
+                )
                 if batch_idx % 1000 == 0:
-                    torch.save(state, os.path.join(config["save_folder"], config["tag"] + f"{batch_idx}.pth"))
+                    torch.save(
+                        state,
+                        os.path.join(
+                            config["save_folder"], config["tag"] + f"{batch_idx}.pth"
+                        ),
+                    )
                 if accelerator.is_main_process:
                     print("\nEvaluating on eval set:")
                 generate(iterator=eval_iterator, idx=batch_idx // config["save_every"])
@@ -278,7 +308,10 @@ def generate(iterator, idx):
     model.eval()
     # prepare data
     tokens, cond_id, cond_mask, tag = next(iterator)
-    conditions = {"input_ids": cond_id.to(accelerator.device), "attention_mask": cond_mask.to(accelerator.device)}
+    conditions = {
+        "input_ids": cond_id.to(accelerator.device),
+        "attention_mask": cond_mask.to(accelerator.device),
+    }
     # generate
     with torch.no_grad() and torch.autocast("cuda", dtype=torch.bfloat16):
         mask = ~torch.isnan(tokens)
