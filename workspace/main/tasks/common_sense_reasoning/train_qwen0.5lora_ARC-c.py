@@ -63,7 +63,7 @@ config: dict[str, [float, int, str, dict]] = {
     # train setting
     "max_num_gpus": 8,
     "batch_size": 16,
-    "num_workers": 0,
+    "num_workers": 2,
     "prefetch_factor": 1,
     "warmup_steps": 1,
     "total_steps": 4000,
