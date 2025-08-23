@@ -162,16 +162,25 @@ class Tokenizer2D(TokenizerInterface):
         return weight, bias
 
     def _tokenize_weight(self, weight, num_tokens=1):
+        """
+        KEY
+        """
         assert weight.dim() == 2 and num_tokens == 1
+        # Normalize
         weight_mean, weight_std = weight.mean(), weight.std()
         weight_std = 1.0 if torch.isnan(weight_std) else weight_std
         weight = (weight - weight_mean) / weight_std
+        # Pad to token size
         token = self.pad_to_shape_2d(weight, self.token_size, padding_value=self.padding_value)
         return [
             token,
         ], [weight_mean, weight_std, weight_mean, weight_std]
 
     def _detokenize_weight(self, fake_weight, tokens, scales):
+        """
+        KEY
+        """
+        # detokenize: token * weight_std + weight_mean
         assert fake_weight.dim() == 2 and len(tokens) == 1 and len(scales) == 1
         tokens, scales = torch.squeeze(tokens, dim=0), torch.squeeze(scales, dim=0)
         weight_mean, weight_std = (

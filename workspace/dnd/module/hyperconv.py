@@ -16,9 +16,10 @@ class HyperConv3d(nn.Module):
         # init parameters
         self.norm = nn.LayerNorm(list(in_features[1:3]))
         self.conv1w = nn.Conv2d(in_width, out_width, kernel_size, 1, "same", bias=False)
+        self.conv2w = nn.Conv2d(in_width, out_width, kernel_size, 1, "same", bias=False)
         self.conv1h = nn.Conv2d(in_height, out_height, kernel_size, 1, "same", bias=False)
         self.conv2h = nn.Conv2d(in_height, out_height, kernel_size, 1, "same", bias=False)
-        self.conv2w = nn.Conv2d(in_width, out_width, kernel_size, 1, "same", bias=False)
+        # Learnable bias
         self.bias = nn.Parameter(torch.empty(out_height, out_width))
         nn.init.uniform_(self.bias, -1.0 / self.bias.numel(), 1.0 / self.bias.numel())
 
@@ -32,11 +33,13 @@ class HyperConv3d(nn.Module):
 
     def conv_width_first(self, x):
         x = x.transpose(-1, -3)  # B, N, L, C -> B, C, L, N
+        # Conv on (L, N): B, C, L, N -> B, out_width, L, N
         x = self.conv1w(x)
-        x.transpose_(-1, -3)
-        x.transpose_(-2, -3)
+        x.transpose_(-1, -3)  # B, C, L, N -> B, N, L, C
+        x.transpose_(-2, -3)  # B, N, L, C -> B, L, N, C
+        # Conv on (N, C): B, L, N, C -> B, out_height, N, C
         x = self.conv1h(x)
-        x.transpose_(-2, -3)
+        x.transpose_(-2, -3)  # B, L, N, C -> B, N, L, C
         return x
 
     def conv_height_first(self, x):
@@ -50,6 +53,9 @@ class HyperConv3d(nn.Module):
 
 
 class HyperConvLayer(nn.Module):
+    """
+    A HyperConv3d layer + A Conv2d layer
+    """
     def __init__(self, in_features: tuple, out_features: tuple, kernel_size: int):
         super().__init__()
         self.linear1 = HyperConv3d(in_features, out_features, kernel_size=kernel_size)
