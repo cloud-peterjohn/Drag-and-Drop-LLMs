@@ -31,3 +31,4 @@ tmp/*
 
 run.ipynb
 train.py
+generate.py
